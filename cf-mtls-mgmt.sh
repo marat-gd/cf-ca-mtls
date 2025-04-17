@@ -80,7 +80,12 @@ list_hostname_associations() {
     if echo "$response" | grep -q '"success":true'; then
         echo "Hostname associations:"
 
-        echo "$response" | jq '.result.hostnames[]'
+        if echo "$response" | jq -e '.result.hostnames' > /dev/null; then
+            echo "$response" | jq '.result.hostnames[]'
+        else
+            echo "No hostnames found."
+            echo "Response: $response"
+        fi
     else
         echo "Failed to fetch hostname associations."
         echo "Response: $response"
@@ -137,24 +142,79 @@ delete_mtls_certificate() {
     fi
 }
 
+# Function to delete hostname associations
+delete_hostname_associations() {
+    local mtls_certificate_id=$1
+
+    if [[ -z "$mtls_certificate_id" ]]; then
+        echo "Error: mtls_certificate_id is required."
+        return 1
+    fi
+
+    echo "Deleting  hostname associations for mtls_certificate_id: $mtls_certificate_id"
+    payload=$(jq -n --arg id "$mtls_certificate_id" '{mtls_certificate_id: $id, hostnames: []}')
+
+    response=$(curl -s -X PUT "$API_BASE_URL/zones/$ZONE_ID/certificate_authorities/hostname_associations" \
+        -H "Authorization: Bearer $API_TOKEN" \
+        -H "Content-Type: application/json" \
+        --data "$payload")
+
+    if echo "$response" | grep -q '"success":true'; then
+        echo "Successfully deleted all hostname associations."
+    else
+        echo "Failed to delete hostname associations."
+        echo "Response: $response"
+    fi
+}
+
+# Menu for the functions in the script
+menu() {
+    echo "Select an option:"
+    echo "1) Upload mTLS certificates"
+    echo "2) List all mTLS certificates"
+    echo "3) List hostname associations"
+    echo "4) Update hostname associations"
+    echo "5) Delete hostname associations"
+    echo "6) Delete an mTLS certificate"
+    echo "7) Exit"
+    read -p "Enter your choice: " choice
+
+    case $choice in
+        1)
+            read -p "Enter the directory containing mTLS certificates: " directory
+            upload_mtls_certificates "$directory"
+            ;;
+        2)
+            list_mtls_certificates
+            ;;
+        3)
+            read -p "Enter the mTLS certificate ID: " mtls_certificate_id
+            list_hostname_associations "$mtls_certificate_id"
+            ;;
+        4)
+            read -p "Enter the mTLS certificate ID: " mtls_certificate_id
+            read -p "Enter the hostnames (space-separated): " -a hostnames
+            update_hostname_associations "$mtls_certificate_id" "${hostnames[@]}"
+            ;;
+        5)
+            read -p "Enter the mTLS certificate ID: " mtls_certificate_id
+            read -p "Enter the hostnames to delete (space-separated): " -a hostnames
+            delete_hostname_associations "$mtls_certificate_id" "${hostnames[@]}"
+            ;;
+        6)
+            read -p "Enter the mTLS certificate ID to delete: " mtls_certificate_id
+            delete_mtls_certificate "$mtls_certificate_id"
+            ;;
+        7)
+            echo "Exiting..."
+            exit 0
+            ;;
+        *)
+            echo "Invalid choice. Please try again."
+            menu
+            ;;
+    esac
+}
+
 # Main script logic
-if [[ "$1" == "upload" && -n "$2" ]]; then
-    upload_mtls_certificates "$2"
-elif [[ "$1" == "list-mtls" ]]; then
-    list_mtls_certificates
-elif [[ "$1" == "list-hostnames" && -n "$2" ]]; then
-    list_hostname_associations "$2"
-elif [[ "$1" == "update" && -n "$2" && -n "$3" ]]; then
-    mtls_certificate_id=$2
-    shift 2
-    update_hostname_associations "$mtls_certificate_id" "$@"
-elif [[ "$1" == "delete" && -n "$2" ]]; then
-    delete_mtls_certificate "$2"
-else
-    echo "Usage:"
-    echo "  $0 upload <directory>                 # Upload all mTLS certificates in the specified directory"
-    echo "  $0 list-mtls                          # List all mTLS certificates"
-    echo "  $0 list-hostnames <mtls_certificate_id> # List all hostname associations for the specified mTLS certificate ID"
-    echo "  $0 update <mtls_certificate_id> <hostnames...>  # Update hostname associations with hostnames and mtls_certificate_id"
-    echo "  $0 delete <mtls_certificate_id>       # Delete the specified mTLS certificate ID"
-fi
+menu
