@@ -146,6 +146,36 @@ Deleting certificate ID abc123...
 Certificate deleted successfully.
 ```
 
+## Workflow
+
+### Step 1: Upload the Certificate to Cloudflare
+1. Run the script and select the option to upload mTLS certificates.
+2. Enter the directory containing the `.crt` files when prompted.
+3. The script will upload the certificates to Cloudflare and return a certificate ID for each uploaded certificate.
+
+**Example:**
+```bash
+Enter the directory containing mTLS certificates: /path/to/certificates
+Uploading certificate: cert1.crt
+Uploading certificate: cert2.crt
+All certificates uploaded successfully.
+Certificate ID for cert1.crt: abc123
+Certificate ID for cert2.crt: def456
+```
+
+### Step 2: Associate Relevant Hostnames with the Certificate
+1. Use the certificate ID provided in the upload step.
+2. Run the script and select the option to update hostname associations.
+3. Enter the certificate ID and the hostnames (space-separated) when prompted.
+
+**Example:**
+```bash
+Enter the mTLS certificate ID: abc123
+Enter the hostnames (space-separated): example.com api.example.com
+Updating hostnames for certificate ID abc123...
+Hostnames updated successfully.
+```
+
 ## Notes
 
 - Ensure the `.crt` files are in the specified directory before uploading.
